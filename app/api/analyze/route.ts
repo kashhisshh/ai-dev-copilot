@@ -6,13 +6,18 @@ import { Repo } from "@/models/Repo";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY!,
-    baseURL: process.env.OPENAI_BASE_URL
-});
-
 export async function POST(req: Request) {
     try {
+        // Lazily construct OpenAI client to avoid throwing at module-evaluation
+        // time (which can break builds on platforms where env vars aren't
+        // available at build time).
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            return NextResponse.json({ error: "OpenAI API key is not configured" }, { status: 500 });
+        }
+
+        const openai = new OpenAI({ apiKey, baseURL: process.env.OPENAI_BASE_URL });
+
         const session = await getServerSession(authOptions);
         const { repoUrl, anonymousId } = await req.json();
 
