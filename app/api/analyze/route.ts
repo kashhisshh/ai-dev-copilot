@@ -16,7 +16,14 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "OpenAI API key is not configured" }, { status: 500 });
         }
 
-        const openai = new OpenAI({ apiKey, baseURL: process.env.OPENAI_BASE_URL });
+        const openai = new OpenAI({
+            apiKey,
+            baseURL: process.env.OPENAI_BASE_URL,
+            defaultHeaders: {
+                "HTTP-Referer": "http://localhost:3000",
+                "X-Title": "AI Dev Copilot",
+            }
+        });
 
         const session = await getServerSession(authOptions);
         const { repoUrl, anonymousId } = await req.json();
@@ -108,7 +115,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ result: analysisObj }); // Returning Object
     } catch (e: any) {
-        console.error("Analysis Error:", e.response?.data || e.message);
-        return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+        console.error("Analysis Error:", e.response?.data || e);
+        return NextResponse.json({ error: e.message || "Analysis failed" }, { status: 500 });
     }
 }

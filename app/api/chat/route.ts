@@ -7,18 +7,25 @@ import { authOptions } from "@/lib/auth";
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY!,
-    baseURL: process.env.OPENAI_BASE_URL
+    baseURL: process.env.OPENAI_BASE_URL,
+    defaultHeaders: {
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "AI Dev Copilot",
+    }
 });
 
 export async function GET(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || !session.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
         const { searchParams } = new URL(req.url);
         const repoUrl = searchParams.get("repoUrl");
+        const anonymousId = searchParams.get("anonymousId");
+
+        const userId = session?.user?.email || anonymousId;
+
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
         if (!repoUrl) {
             return NextResponse.json({ error: "No repoUrl provided" }, { status: 400 });
@@ -26,7 +33,7 @@ export async function GET(req: Request) {
 
         await connectDB();
         const messages = await Message.find({
-            userId: session.user.email,
+            userId: userId,
             repoUrl: repoUrl
         }).sort({ createdAt: 1 });
 
@@ -40,11 +47,13 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session || !session.user?.email) {
+        const { question, context, repoUrl, anonymousId } = await req.json();
+
+        const userId = session?.user?.email || anonymousId;
+
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-
-        const { question, context, repoUrl } = await req.json();
 
         if (!question || !repoUrl) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -55,7 +64,7 @@ export async function POST(req: Request) {
         // 1. Save User Message
         await Message.create({
             repoUrl,
-            userId: session.user.email,
+            userId: userId,
             role: "user",
             content: question
         });
@@ -63,7 +72,7 @@ export async function POST(req: Request) {
         // 2. Get AI Response
         const history = await Message.find({
             repoUrl,
-            userId: session.user.email
+            userId: userId
         }).sort({ createdAt: -1 }).limit(10);
 
         const formattedHistory = history.reverse().map(m => ({
@@ -92,14 +101,14 @@ export async function POST(req: Request) {
         // 3. Save Assistant Message
         await Message.create({
             repoUrl,
-            userId: session.user.email,
+            userId: userId,
             role: "assistant",
             content: answer
         });
 
         return NextResponse.json({ answer });
     } catch (error: any) {
-        console.error("Chat Error:", error.message);
-        return NextResponse.json({ error: "Chat failed" }, { status: 500 });
+        console.error("Chat Error:", error);
+        return NextResponse.json({ error: error.message || "Chat failed" }, { status: 500 });
     }
 }

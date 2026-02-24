@@ -47,7 +47,11 @@ function RepoContent() {
 
     const fetchChat = async () => {
       try {
-        const res = await fetch(`/api/chat?repoUrl=${encodeURIComponent(repoUrl)}`);
+        const anonymousId = localStorage.getItem("anonymousId");
+        const url = anonymousId
+          ? `/api/chat?repoUrl=${encodeURIComponent(repoUrl)}&anonymousId=${anonymousId}`
+          : `/api/chat?repoUrl=${encodeURIComponent(repoUrl)}`;
+        const res = await fetch(url);
         const data = await res.json();
         if (Array.isArray(data)) setMessages(data);
       } catch (err) {
@@ -119,7 +123,8 @@ function RepoContent() {
         body: JSON.stringify({
           question,
           context: `Summary: ${analysis.summary}\nTech Stack: ${analysis.tech_stack}\nArchitecture: ${analysis.architecture}`,
-          repoUrl
+          repoUrl,
+          anonymousId: localStorage.getItem("anonymousId")
         }),
       });
 
@@ -296,8 +301,8 @@ function RepoContent() {
                       {/* AVATAR */}
                       <div
                         className={`w-8 h-8 rounded-xl flex items-center justify-center border ${msg.role === "user"
-                            ? "bg-zinc-800 border-zinc-700"
-                            : "bg-white border-white"
+                          ? "bg-zinc-800 border-zinc-700"
+                          : "bg-white border-white"
                           }`}
                       >
                         {msg.role === "user" ? (
@@ -310,8 +315,8 @@ function RepoContent() {
                       {/* BUBBLE */}
                       <div
                         className={`rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md transition ${msg.role === "user"
-                            ? "bg-white text-black rounded-tr-sm"
-                            : "bg-zinc-900 border border-zinc-800 rounded-tl-sm"
+                          ? "bg-white text-black rounded-tr-sm"
+                          : "bg-zinc-900 border border-zinc-800 rounded-tl-sm"
                           }`}
                       >
                         <div className="prose prose-sm dark:prose-invert max-w-none">
